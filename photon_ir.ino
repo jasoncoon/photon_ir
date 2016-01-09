@@ -19,14 +19,16 @@ long decodeIr() {
 
     Serial.println();
     long necCode = decodeNEC(irData);
-    Serial.println();
-    Serial.print(F("NEC: "));
-    Serial.println(necCode, HEX);
-    Serial.print(F("NEC: "));
-    Serial.println(necCode, BIN);
+    if(necCode > 0) {
+      /*Serial.println();*/
+      Serial.print(F("NEC: "));
+      Serial.println(necCode, HEX);
+      Serial.print(F("NEC: "));
+      Serial.println(necCode, BIN);
+    }
 
     irPointer = 0;
-    Serial.println();
+    /*Serial.println();*/
     digitalWrite(LEDPIN, LOW);//end of visual indicator, for this time
     attachInterrupt(IRPIN, rxIR_Interrupt_Handler, CHANGE);//re-enable ISR for receiving IR signal
 

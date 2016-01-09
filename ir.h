@@ -27,13 +27,21 @@ Signal Out   ->  Digital Pin 2
 */
 
 // From https://github.com/shirriff/Arduino-IRremote/blob/master/IRremoteInt.h
-#define NEC_BITS 32
+
+// Pulse parms are *50-100 for the Mark and *50+100 for the space
+// First MARK is the one after the long gap
+// pulse parameters in usec
 #define NEC_HDR_MARK	9000
 #define NEC_HDR_SPACE	4500
 #define NEC_BIT_MARK	560
-#define NEC_ONE_SPACE	1690
+#define NEC_ONE_SPACE	1600
 #define NEC_ZERO_SPACE	560
 #define NEC_RPT_SPACE	2250
+
+#define NEC_BITS 32
+
+// Marks tend to be 100us too long, and spaces 100us too short
+// when received due to sensor lag.
 #define MARK_EXCESS 100
 
 //you may increase this value on Arduinos with greater than 2k SRAM
@@ -42,18 +50,23 @@ Signal Out   ->  Digital Pin 2
 volatile unsigned int irBuffer[maxLen]; //stores timings - volatile because changed by ISR
 volatile unsigned int irPointer = 0; //Pointer thru irBuffer - volatile because changed by ISR
 
-int MATCH_MARK(int measured_us, int desired_us) {
-  return measured_us >= (desired_us - MARK_EXCESS) && measured_us <= (desired_us + MARK_EXCESS);
-}
+#define TOLERANCE 25  // percent tolerance in measurements
+#define LTOL (1.0 - TOLERANCE/100.)
+#define UTOL (1.0 + TOLERANCE/100.)
 
-int MATCH_SPACE(int measured_us, int desired_us) {
-  return measured_us >= (desired_us - MARK_EXCESS) && measured_us <= (desired_us + MARK_EXCESS);
-}
+#define USECPERTICK 50  // microseconds per clock interrupt tick
+
+#define TICKS_LOW(us) (int) (((us)*LTOL/USECPERTICK))
+#define TICKS_HIGH(us) (int) (((us)*UTOL/USECPERTICK + 1))
+
+int MATCH(int measured, int desired) {return measured >= TICKS_LOW(desired) && measured <= TICKS_HIGH(desired);}
+int MATCH_MARK(int measured_ticks, int desired_us) {return MATCH(measured_ticks, (desired_us + MARK_EXCESS));}
+int MATCH_SPACE(int measured_ticks, int desired_us) {return MATCH(measured_ticks, (desired_us - MARK_EXCESS));}
 
 // NECs have a repeat only 4 items long
 long decodeNEC(int *irData) {
   long data = 0;
-  int offset = 0;
+  int offset = 1;
   // Initial mark
   if (!MATCH_MARK(irData[offset], NEC_HDR_MARK)) {
     Serial.println("ERR No NEC Header");
@@ -110,5 +123,4 @@ long decodeNEC(int *irData) {
 void rxIR_Interrupt_Handler() {
   if (irPointer > maxLen) return; //ignore if irBuffer is already full
   irBuffer[irPointer++] = micros(); //just continually record the time-stamp of signal transitions
-
 }
